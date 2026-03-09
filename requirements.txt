@@ -1,0 +1,21 @@
+# ─── Core ML ───────────────────────────────────────────────────────────────────
+# PyTorch is NOT listed here — install separately with the CUDA-specific command:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+
+# ─── Data / MIDI ────────────────────────────────────────────────────────────────
+pretty_midi==0.2.10
+music21==9.1.0
+h5py==3.11.0
+numpy==1.26.4
+pandas==2.2.2
+
+# ─── Training utilities ─────────────────────────────────────────────────────────
+tqdm==4.66.4
+
+# ─── Notebooks & visualization ──────────────────────────────────────────────────
+jupyter==1.0.0
+matplotlib==3.9.0
+seaborn==0.13.2
+
+# ─── HTTP / downloads ───────────────────────────────────────────────────────────
+requests==2.32.3

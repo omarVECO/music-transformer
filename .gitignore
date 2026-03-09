@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Dataset — no subir al repo (demasiado pesado)
+data/raw/
+data/tokens/train.h5
+data/tokens/val.h5
+data/tokens/test.h5
+data/tokens/*.json
+
+# Sí subir al repo
+!data/tokens/vocabulary.json
+!data/tokens/index.csv
+!data/processed/labeled_midi.csv
+
+# Checkpoints — no subir pesos al repo
+checkpoints/*.pt
+checkpoints/*.pth
+
+# Sí subir el log de entrenamiento
+!checkpoints/train_log.json
+
+# Sistema
+.DS_Store
+.env
+*.log
+*.tmp
