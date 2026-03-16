@@ -1,61 +1,60 @@
-import csv, json
-from pathlib import Path
-from collections import defaultdict
+import torch, sys
+sys.path.insert(0, 'src')
+from model.config import ModelConfig
+from model.transformer import MusicTransformer
+from data.midi_tokenizer import TOKEN2ID, ID2TOKEN, detect_key, select_tracks, notes_to_token_sequence, inst_to_token
+import pretty_midi
+from collections import Counter
 
-TOKEN2ID = json.load(open("data/tokens/vocabulary.json"))["token2id"]
-PAD_ID   = TOKEN2ID["<PAD>"]
-MIN_WIN_LEN = 32
-MAX_SEQ_LEN = 1536
+device = torch.device("cuda")
+config = ModelConfig()
+model  = MusicTransformer(config).to(device)
+ckpt   = torch.load("checkpoints/best_model.pt", map_location=device)
+model.load_state_dict(ckpt["model_state"])
+model.eval()
 
-def find_bar_boundaries(token_ids):
-    bar_ids = {TOKEN2ID[f"<BAR_{i}>"] for i in range(1, 33)}
-    return [i for i, tid in enumerate(token_ids) if tid in bar_ids]
+midi_path = "data/raw/lmd_matched/T/T/T/TRTTTXG128F93274CA/94327c13c6adfce6158ee27cbfb4ecee.mid"
+pm = pretty_midi.PrettyMIDI(midi_path)
+melody_inst, _ = select_tracks(pm)
+tempo_bpm = pm.estimate_tempo()
+key_token = detect_key(pm)
 
-rows = list(csv.DictReader(open("data/tokens/index.csv")))
+enc_tokens = notes_to_token_sequence(
+    melody_inst, pm, tempo_bpm, key_token,
+    "FUNK", "DARK", 0.5, inst_to_token(melody_inst), is_encoder=True
+)
+enc_tokens = enc_tokens[:config.max_seq_len]
+enc_ids  = torch.tensor([TOKEN2ID.get(t, TOKEN2ID["<UNK>"]) for t in enc_tokens], dtype=torch.long)
+enc_mask = torch.ones(len(enc_ids), dtype=torch.bool)
+pad_len  = config.max_seq_len - len(enc_ids)
+enc_ids  = torch.cat([enc_ids,  torch.zeros(pad_len, dtype=torch.long)])
+enc_mask = torch.cat([enc_mask, torch.zeros(pad_len, dtype=torch.bool)])
 
-skip_reasons = defaultdict(int)
-short_lens   = []
+from model.inference import generate
 
-for row in rows:
-    try:
-        data    = json.load(open(row["token_path"]))
-        enc_ids = [TOKEN2ID.get(t, TOKEN2ID["<UNK>"]) for t in data["encoder_tokens"]]
-        dec_ids = [TOKEN2ID.get(t, TOKEN2ID["<UNK>"]) for t in data["decoder_tokens"]]
-    except Exception as e:
-        skip_reasons["json_error"] += 1
-        continue
+prompt = [TOKEN2ID["<SOS>"], TOKEN2ID["<GENRE_FUNK>"],
+          TOKEN2ID["<MOOD_DARK>"], TOKEN2ID["<ENERGY_MED>"], TOKEN2ID["<INST_BASS>"]]
 
-    enc_bars = find_bar_boundaries(enc_ids)
-    dec_bars = find_bar_boundaries(dec_ids)
+print("=" * 55)
+for temp in [0.6, 0.8, 1.0, 1.2]:
+    torch.manual_seed(42)
+    gen_ids = generate(model, enc_ids, enc_mask, prompt, config, device,
+                       max_new_tokens=400, temperature=temp, top_p=0.9)
+    gen_tokens = [ID2TOKEN.get(i, "<UNK>") for i in gen_ids]
 
-    if len(enc_bars) < 2:
-        skip_reasons["enc_no_bars"] += 1
-        short_lens.append(len(enc_ids))
-        continue
+    pitches = [t for t in gen_tokens if t.startswith("<PITCH_")]
+    unique  = set(pitches)
+    notes   = [int(t[7:-1]) for t in pitches]
+    note_names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
 
-    # Simular primera ventana
-    enc_start = enc_bars[0]
-    enc_win   = enc_ids[enc_start:enc_start + MAX_SEQ_LEN]
-    dec_start = dec_bars[0] if dec_bars else 0
-    dec_win   = dec_ids[dec_start:dec_start + MAX_SEQ_LEN]
+    pitch_counter = Counter(pitches).most_common(6)
 
-    if len(enc_win) < MIN_WIN_LEN:
-        skip_reasons["enc_win_too_short"] += 1
-        short_lens.append(len(enc_win))
-    elif len(dec_win) < MIN_WIN_LEN:
-        skip_reasons["dec_win_too_short"] += 1
-        short_lens.append(len(dec_win))
-    else:
-        skip_reasons["should_be_ok"] += 1
-
-import numpy as np
-print("=== RAZONES DE SKIP ===")
-for reason, count in sorted(skip_reasons.items(), key=lambda x: -x[1]):
-    print(f"  {reason:<25} {count}")
-
-if short_lens:
-    print(f"\n=== LONGITUDES DE CASOS CORTOS ===")
-    arr = np.array(short_lens)
-    print(f"  min={arr.min()}  max={arr.max()}  avg={arr.mean():.0f}  median={np.median(arr):.0f}")
-    print(f"  < 10 tokens: {(arr < 10).sum()}")
-    print(f"  < 32 tokens: {(arr < 32).sum()}")
+    print(f"\ntemperature={temp}")
+    print(f"  Pitches únicos: {len(unique)} / {len(pitches)} notas")
+    print(f"  Rango: MIDI {min(notes)} ({note_names[min(notes)%12]}) — MIDI {max(notes)} ({note_names[max(notes)%12]})")
+    print(f"  Top 6: {[(t[7:-1], c) for t, c in pitch_counter]}")
+    if len(notes) > 1:
+        import numpy as np
+        intervals = [abs(notes[i+1]-notes[i]) for i in range(len(notes)-1)]
+        print(f"  Intervalo promedio: {np.mean(intervals):.1f} semitonos")
+print("=" * 55)

@@ -21,31 +21,17 @@ def train():
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     torch.cuda.empty_cache()
 
-    # Dataset
     train_loader, val_loader, _ = get_dataloaders(config)
     steps_per_epoch = len(train_loader)
     total_steps     = steps_per_epoch * config.max_epochs
 
-    # Modelo
     model = MusicTransformer(config).to(device)
     print(f"Parámetros: {model.count_params():,}")
 
-    # Mixed precision — reduce VRAM a la mitad durante forward
-    scaler = GradScaler()
-
-    # Loss
-    criterion = nn.CrossEntropyLoss(
-        ignore_index=config.pad_id,
-        label_smoothing=0.1
-    )
-
-    # Optimizer + scheduler
-    optimizer = AdamW(
-        model.parameters(),
-        lr=config.learning_rate,
-        betas=(0.9, 0.98),
-        weight_decay=0.01
-    )
+    scaler    = GradScaler()
+    criterion = nn.CrossEntropyLoss(ignore_index=config.pad_id, label_smoothing=0.1)
+    optimizer = AdamW(model.parameters(), lr=config.learning_rate,
+                      betas=(0.9, 0.98), weight_decay=0.01)
     scheduler = OneCycleLR(
         optimizer,
         max_lr=config.learning_rate,
@@ -58,9 +44,24 @@ def train():
     ckpt_dir.mkdir(exist_ok=True)
     best_val_loss = float("inf")
     train_log     = []
+    start_epoch   = 1
 
-    for epoch in range(1, config.max_epochs + 1):
-        # ── Train ──────────────────────────────────────────
+    # ── Resume desde checkpoint si existe ──────────────────────
+    resume_path = ckpt_dir / "best_model_v1_no_augmentation.pt"
+    start_epoch = 1
+    best_val_loss = float("inf")
+    train_log = []
+
+    if resume_path.exists():
+        ckpt = torch.load(resume_path, map_location=device)
+        model.load_state_dict(ckpt["model_state"])
+        # No cargamos optim_state — queremos lr fresco para fine-tuning
+        print(f"  Fine-tuning desde v1 (val_loss={ckpt['val_loss']:.4f})")
+    else:
+        print("  Entrenando desde cero")
+
+    for epoch in range(start_epoch, config.max_epochs + 1):
+        # ── Train ──────────────────────────────────────────────
         model.train()
         train_loss = 0.0
         optimizer.zero_grad()
@@ -76,7 +77,6 @@ def train():
             dec_target  = dec_ids[:, 1:]
             dec_mask_in = dec_mask[:, :-1]
 
-            # autocast: forward en float16, ahorra ~50% VRAM
             with autocast(device_type="cuda", dtype=torch.float16):
                 logits = model(enc_ids, dec_input, enc_mask, dec_mask_in)
                 loss   = criterion(
@@ -98,7 +98,7 @@ def train():
 
         avg_train_loss = train_loss / steps_per_epoch
 
-        # ── Validation ─────────────────────────────────────
+        # ── Validation ─────────────────────────────────────────
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
