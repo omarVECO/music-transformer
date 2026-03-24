@@ -1,0 +1,43 @@
+{
+  "timestamp": "20260323_220443",
+  "genre": "FUNK",
+  "mood": "HAPPY",
+  "instrument": "BASS",
+  "total": 4,
+  "exitosos": 4,
+  "fallidos": 0,
+  "resultados": [
+    {
+      "midi_path": "data\\processed\\input_midis\\G_80.mid",
+      "genre": "FUNK",
+      "mood": "HAPPY",
+      "instrument": "BASS",
+      "error": null,
+      "audio": "G_80.mp3"
+    },
+    {
+      "midi_path": "data\\processed\\input_midis\\Piano.mid",
+      "genre": "FUNK",
+      "mood": "HAPPY",
+      "instrument": "BASS",
+      "error": null,
+      "audio": "Piano.mp3"
+    },
+    {
+      "midi_path": "data\\processed\\input_midis\\acoustic-guitar.mid",
+      "genre": "FUNK",
+      "mood": "HAPPY",
+      "instrument": "BASS",
+      "error": null,
+      "audio": "acoustic-guitar.mp3"
+    },
+    {
+      "midi_path": "data\\processed\\input_midis\\bass-wave.mid",
+      "genre": "FUNK",
+      "mood": "HAPPY",
+      "instrument": "BASS",
+      "error": null,
+      "audio": "bass-wave.mp3"
+    }
+  ]
+}
