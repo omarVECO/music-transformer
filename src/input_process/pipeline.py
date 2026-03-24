@@ -9,15 +9,16 @@ def run_input_pipeline(wav_path):
         print(f"ERROR: El archivo no existe en: {wav_path}")
         return None
     
-    #1. Validamos
-    valido, instrumento = validate_audio(wav_path)
+    # 1. Validamos
+    instrumento, es_valido = validate_audio(wav_path)
     
-    if not valido:
-        print(f"ERROR: El instrumento {instrumento} no es soportado.")
+    if not es_valido:
+        print(f"ERROR: El instrumento '{instrumento}' no es soportado.")
+        print(f"       Solo se aceptan: piano, guitar, bass.")
         return None
 
     # 2. Transcribimos
-    ruta_midi = audio_to_midi(wav_path)
+    midi_path = audio_to_midi(wav_path)
     
-    print(f"SUCCESS: Pipeline completado. Archivo generado: {ruta_midi}")
-    return ruta_midi
+    print(f"SUCCESS: Pipeline completado. MIDI listo para tokenizar: {midi_path}")
+    return midi_path
