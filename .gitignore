@@ -39,3 +39,6 @@ checkpoints/*.pth
 .env
 *.log
 *.tmp
+
+# Audios de prueba
+test_audios/

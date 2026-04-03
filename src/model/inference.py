@@ -197,7 +197,7 @@ def main():
 
     config = ModelConfig()
     model  = MusicTransformer(config).to(device)
-    ckpt   = torch.load("checkpoints/best_model.pt", map_location=device)
+    ckpt   = torch.load("checkpoints/best_model_cic.pt", map_location=device)
     model.load_state_dict(ckpt["model_state"])
     model.eval()
     print(f"Modelo cargado — epoch {ckpt['epoch']}, val_loss={ckpt['val_loss']:.4f}")
