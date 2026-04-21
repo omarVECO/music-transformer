@@ -30,6 +30,8 @@ data/tokens/*.json
 # Checkpoints — no subir pesos al repo
 checkpoints/*.pt
 checkpoints/*.pth
+checkpoints/v2/*.pt
+checkpoints/v2/*pth
 
 # Sí subir el log de entrenamiento
 !checkpoints/train_log.json
@@ -42,3 +44,4 @@ checkpoints/*.pth
 
 # Audios de prueba
 test_audios/
+results/
